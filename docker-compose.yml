@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  web:      #web adinda bir konteyner tanimladik
+    build: . # Dockerfile tarifini kullanarak bu konteyneri insa ediyoruz
+    command: python manage.py runserver 0.0.0.0:8000   
+
+    #normalde kodda degisiklik olunca dockerin bunu gormesi icin projeyi bastan insa etmen gerekir  
+    #ama bu satir sayesinde dockerin icindeki tum kodlar senkronize olur
+    #sen bilgisayarda bir dosya kaydettigin an docekerin icindeki kod aninda guncellenir.  
+    volumes:
+      - .:/app      
+    ports:
+      - "8000:8000"     # bilgisayarin 8000 portuyla konteynerin 8000 portunu birbirine baglar
+    depends_on:
+      - influxdb
+
+  influxdb:
+    image: influxdb:2.7
+    ports:
+      - "8086:8086"
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup #influxDBB ilk acildiginda otomatik kurulumu aktif eder
+      - DOCKER_INFLUXDB_INIT_USERNAME=mericadmin 
+      - DOCKER_INFLUXDB_INIT_PASSWORD=guclusifre123
+      - DOCKER_INFLUXDB_INIT_ORG=meric_org # verileri gruplayacagin organizasyonun adini belirler
+      - DOCKER_INFLUXDB_INIT_BUCKET=sensor_bucket #verilerin toplanacagi ana klasorun adini belirler
+    volumes:
+      - influxdb-data:/var/lib/influxdb2    # docker konteynerini silsen bile verilerin korunmasini saglar
+    restart: always
+
+volumes:
+  influxdb-data:
+    

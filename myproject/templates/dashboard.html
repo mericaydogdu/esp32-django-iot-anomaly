@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- <meta http-equiv="refresh" content="2"> yerine AJAX kullanıyoruz -->
+    <meta charset="UTF-8">
+    <title>Meric Alert System - Dashboard</title>
+    <!-- Google Font -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,400i,700&display=fallback">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- AdminLTE CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/css/adminlte.min.css">
+    <!-- Chart.js Kütüphanesi -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="hold-transition sidebar-mini">
+<div class="wrapper" style="background-color: #f4f6f9; min-height: 100vh; padding: 20px;">
+
+    <!-- Üst Başlık -->
+    <div class="container-fluid mb-3">
+        <h2 class="text-dark font-weight-bold">ESP32 Hybrid Security & Sensor Panel</h2>
+        <p class="text-muted">Live data coming from your hardware device</p>
+    </div>
+
+    <!-- Alarm Kutuları -->
+    <div class="container-fluid">
+        {% if motion_alert %}
+        <div class="alert alert-danger alert-dismissible">
+            <h5><i class="icon fas fa-ban"></i> SECURITY ALERT!</h5>
+            Motion Detected by ESP32!
+        </div>
+        {% endif %}
+
+        {% if temp_alert %}
+        <div class="alert alert-warning alert-dismissible">
+            <h5><i class="icon fas fa-exclamation-triangle"></i> TEMPERATURE ALERT!</h5>
+            High Temperature Detected (>30°C)!
+        </div>
+        {% endif %}
+    </div>
+
+    <!--Info Boxes -->
+    <section class="content">
+        <div class="container-fluid">
+            <div class="row">
+                <!-- SICAKLIK KUTUSU (id="temp-val" ekledik) -->
+                <div class="col-lg-3 col-6">
+                    <div class="small-box bg-info">
+                        <div class="inner">
+                            <h3 id="temp-val">{{ temperature }}<sup style="font-size: 20px">°C</sup></h3>
+                            <p>Temperature</p>
+                        </div>
+                        <div class="icon"><i class="fas fa-temperature-high"></i></div>
+                    </div>
+                </div>
+            
+                <!-- NEM KUTUSU (id="hum-val" ekledik) -->
+                <div class="col-lg-3 col-6">
+                    <div class="small-box bg-success">
+                        <div class="inner">
+                            <h3 id="hum-val">{{ humidity }}<sup style="font-size: 20px">%</sup></h3>
+                            <p>Humidity</p>
+                        </div>
+                        <div class="icon"><i class="fas fa-tint"></i></div>
+                    </div>
+                </div>
+
+                <div class="col-lg-3 col-6">
+                    <div class="small-box bg-warning">
+                        <div class="inner">
+                            <h3>{{ motion }}</h3>
+                            <p>Motion Status</p>
+                        </div>
+                        <div class="icon"><i class="fas fa-running"></i></div>
+                    </div>
+                </div>
+
+                <div class="col-lg-3 col-6">
+                    <div class="small-box bg-danger">
+                        <div class="inner">
+                            <h3>{{ distance }}<sup style="font-size: 15px">cm</sup></h3>
+                            <p>Distance</p>
+                        </div>
+                        <div class="icon"><i class="fas fa-ruler"></i></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Çizgi Grafik Alanı -->
+            <div class="row">
+                <div class="col-12">
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-success">
+                            <h3 class="card-title font-weight-bold">Temperature & Humidity Trend</h3>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="sensorChart" style="min-height: 250px; height: 250px; max-height: 250px; max-width: 100%;"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Geçmiş Veriler Tablosu -->
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-primary">
+                            <h3 class="card-title font-weight-bold">Recent Sensor Logs (Database)</h3>
+                        </div>
+                        <div class="card-body table-responsive p-0">
+                            <table class="table table-hover text-center text-nowrap">
+                                <thead>
+                                    <tr>
+                                        <th>Temperature</th>
+                                        <th>Humidity</th>
+                                        <th>Motion</th>
+                                        <th>Distance</th>
+                                        <th>Timestamp</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for data in recent_sensors %}
+                                    <tr>
+                                        <td>{{ data.temperature }}°C</td>
+                                        <td>{{ data.humidity }}%</td>
+                                        <td>{{ data.motion }}</td>
+                                        <td>{{ data.distance }} cm</td>
+                                        <td>{{ data.timestamp }}</td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr>
+                                        <td colspan="5">No data recorded yet.</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </section>
+</div>
+
+<!-- AdminLTE JS -->
+<script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
+
+<!-- Grafik Çizdirme ve AJAX Anlık Güncelleme Scripti -->
+<script>
+    let timestamps = JSON.parse('{{ timestamps_json|escapejs }}');
+    let temperatures = JSON.parse('{{ temperatures_json|escapejs }}');
+    let humidities = JSON.parse('{{ humidities_json|escapejs }}');
+
+    const ctx = document.getElementById('sensorChart').getContext('2d');
+    const sensorChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: timestamps,
+            datasets: [
+                {
+                    label: 'Temperature (°C)',
+                    data: temperatures,
+                    borderColor: '#17a2b8',
+                    backgroundColor: 'rgba(23, 162, 184, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.3
+                },
+                {
+                    label: 'Humidity (%)',
+                    data: humidities,
+                    borderColor: '#28a745',
+                    backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.3
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+
+    // ajax fetch kismi 
+    setInterval(async () => {
+        try {
+            let response = await fetch('/api/data/');
+            let data = await response.json();
+
+            // 1. Sıcaklık kutusunu bul ve içeriğini güncelle
+            document.getElementById('temp-val').innerHTML = data.temperature + '<sup style="font-size: 20px">°C</sup>';
+
+            // 2. Nem kutusunu bul ve içeriğini güncelle
+            document.getElementById('hum-val').innerHTML = data.humidity + '<sup style="font-size: 20px">%</sup>';
+
+        } catch (error) {
+            console.error("AJAX veri çekme hatası:", error);
+        }
+    }, 2000); // her iki saniyede bir 
+</script>
+
+</body>
+</html>
