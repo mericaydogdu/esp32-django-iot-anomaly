@@ -17,8 +17,8 @@ latest_sensor_data = {
 }
 
 def send_telegram_alert(message):
-    TOKEN = "8861298906:AAEcCifPPMSSl6IL1nvxhKLgkhR0RecUFt4"
-    CHAT_ID = "5575215038"
+    TOKEN = "*******"
+    CHAT_ID = "*****"
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
     payload = {
         "chat_id": CHAT_ID,
@@ -192,9 +192,9 @@ def get_latest_sensor_data(request):
     return JsonResponse(data)
 
 INFLUX_URL = "http://influxdb:8086"
-INFLUX_TOKEN = "guclusifre123"
-INFLUX_ORG = "meric_org"
-INFLUX_BUCKET = "sensor_bucket"
+INFLUX_TOKEN = "*****"
+INFLUX_ORG = "xxxxxxx"
+INFLUX_BUCKET = "xxxxxxx"
 
 def save_to_influx(temp, hum, motion, distance):
     client = InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
